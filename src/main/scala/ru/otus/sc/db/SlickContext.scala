@@ -33,8 +33,10 @@ object SlickContext {
       Database.forURL(config.dbUrl, config.dbUserName, config.dbPassword)
   }
 
-  val live: URLayer[Has[DbConfig] with Blocking with Clock with Logging, SlickContext] =
-    (ZLayer.requires[Has[DbConfig] with Blocking with Clock with Logging] ++ Migrations.live) >+>
+  type Dependencies = Has[DbConfig] with Blocking with Clock with Logging
+
+  val live: URLayer[Dependencies, SlickContext] =
+    (ZLayer.requires[Dependencies] ++ Migrations.live) >+>
       Migrations.afterMigrations >+>
       dbFromConfig >>>
       fromDatabase

@@ -6,12 +6,11 @@ import ru.otus.sc.config.HttpConfig
 import ru.otus.sc.di.DI
 import ru.otus.sc.route.Router
 import ru.otus.sc.route.Router.Router
-import zio.console.{Console, getStrLn, putStrLn}
 import zio._
 import zio.blocking.Blocking
 import zio.clock.Clock
+import zio.console.{Console, getStrLn, putStrLn}
 import zio.internal.{Executor, Platform}
-import zio.logging.{LogAnnotation, Logging}
 import zio.logging.slf4j._
 
 object SlickMain {
@@ -55,15 +54,15 @@ object SlickMain {
           .fork
       _ <- ZIO.effectTotal(
         CoordinatedShutdown(system)
-          .addTask(CoordinatedShutdown.PhaseBeforeActorSystemTerminate, "interupt-effect") { () =>
-            runtime.unsafeRunToFuture(fiber.interrupt.forkDaemon.as(Done))
+          .addTask(CoordinatedShutdown.PhaseBeforeActorSystemTerminate, "interrupt-effect") { () =>
+            runtime.unsafeRunToFuture(fiber.interrupt.as(Done))
           }
       )
-      _ <- fiber.await
+      _ <- fiber.join
       _ <- fiber.interrupt
     } yield ()
 
-    runtime.unsafeRunAsync(app) { _: Exit[Nothing, Unit] =>
+    runtime.unsafeRunAsync(app.orDie) { _: Exit[Nothing, Unit] =>
       system.terminate()
     }
 

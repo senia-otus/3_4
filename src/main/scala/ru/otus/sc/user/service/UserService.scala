@@ -5,6 +5,7 @@ import ru.otus.sc.user.model._
 import zio.clock.Clock
 import zio.logging.Logging
 import zio._
+import ru.otus.sc.utils.LoggingUtils.{localTimed, localTimedNamed}
 
 object UserService {
   type UserService = Has[Service]
@@ -20,14 +21,20 @@ object UserService {
   }
 
   val live: URLayer[UserDao, UserService] = ZLayer.fromService { dao =>
+    val localTimed = localTimedNamed("UserService")
+
     new Service {
       def createUser(request: CreateUserRequest): URIO[Env, CreateUserResponse] =
-        dao.createUser(request.user).map(CreateUserResponse)
+        localTimed("createUser") {
+          dao.createUser(request.user).map(CreateUserResponse)
+        }
 
       def getUser(request: GetUserRequest): URIO[Env, GetUserResponse] =
-        dao.getUser(request.userId) map {
-          case Some(user) => GetUserResponse.Found(user)
-          case None       => GetUserResponse.NotFound(request.userId)
+        localTimed("getUser") {
+          dao.getUser(request.userId) map {
+            case Some(user) => GetUserResponse.Found(user)
+            case None       => GetUserResponse.NotFound(request.userId)
+          }
         }
 
       def updateUser(request: UpdateUserRequest): URIO[Env, UpdateUserResponse] =

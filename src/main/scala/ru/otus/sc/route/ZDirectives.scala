@@ -1,11 +1,14 @@
 package ru.otus.sc.route
 
+import java.util.UUID
+
 import akka.http.scaladsl.marshalling.ToResponseMarshaller
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server._
 import zio.blocking.Blocking
 import zio.clock.Clock
 import zio.logging._
+import ru.otus.sc.utils.LoggingUtils.localTimed
 import zio.{CanFail, Has, URIO, URLayer, ZIO}
 
 object ZDirectives {
@@ -27,20 +30,24 @@ object ZDirectives {
           def completeZio[R: ToResponseMarshaller](
               zio: URIO[Blocking with Logging with Clock, R]
           ): Route =
-            onSuccess(runtime.unsafeRunToFuture(zio)) { res =>
+            onSuccessZio(zio) { res =>
               complete(res)
             }
 
           def onZio[E: CanFail, R](
               zio: ZIO[Blocking with Logging with Clock, E, R]
           )(f: Either[E, R] => Route): Route =
-            onSuccess(runtime.unsafeRunToFuture(zio.either))(f)
+            onSuccessZio(zio.either)(f)
 
           def onSuccessZio[R](
               zio: URIO[Blocking with Logging with Clock, R]
-          )(f: R => Route): Route = onSuccess(runtime.unsafeRunToFuture(zio))(f)
+          )(f: R => Route): Route =
+            onSuccess(runtime.unsafeRunToFuture {
+              localTimed("HTTP", UUID.randomUUID().toString) {
+                zio
+              }
+            })(f)
         }
       }
       .toLayer
-
 }

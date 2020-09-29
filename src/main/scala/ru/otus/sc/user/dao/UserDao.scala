@@ -4,11 +4,11 @@ import java.util.UUID
 
 import ru.otus.sc.db.SlickContext.SlickContext
 import ru.otus.sc.user.model.{Role, User}
-import slick.jdbc.PostgresProfile.api._
-import zio.{Tag => _, _}
 import ru.otus.sc.utils.LoggingUtils.localTimed
+import slick.jdbc.PostgresProfile.api._
 import zio.clock.Clock
 import zio.logging.Logging
+import zio.{Tag => _, _}
 
 object UserDao {
   type UserDao = Has[Service]
@@ -21,7 +21,7 @@ object UserDao {
     def deleteUser(userId: UUID): URIO[Env, Option[User]]
     def findByLastName(lastName: String): URIO[Env, Seq[User]]
     def findAll(): URIO[Env, Seq[User]]
-    private[slick] def deleteAll(): URIO[Env, Unit]
+    private[dao] def deleteAll(): URIO[Env, Unit]
   }
 
   val live: URLayer[SlickContext, UserDao] = ZLayer.fromService { slickContext =>
@@ -55,9 +55,9 @@ object UserDao {
 
       def updateUser(user: User): URIO[Env, Option[User]] =
         localTimed("UserDao", "getUser") {
-          user.id match {
-            case Some(userId) =>
-              slickContext.run { implicit ec =>
+          slickContext.run { implicit ec =>
+            user.id match {
+              case Some(userId) =>
                 val updateUser =
                   users
                     .filter(_.id === userId)
@@ -77,9 +77,9 @@ object UserDao {
                   } yield u.map(_ => user)
 
                 action.transactionally
-              }
 
-            case None => ZIO.none
+              case None => DBIO.successful(None)
+            }
           }
         }
 
@@ -127,7 +127,7 @@ object UserDao {
       def findAll(): URIO[Env, Seq[User]] =
         localTimed("UserDao", "getUser") { findByCondition(_ => true) }
 
-      private[slick] def deleteAll(): URIO[Env, Unit] =
+      private[dao] def deleteAll(): URIO[Env, Unit] =
         localTimed("UserDao", "getUser") {
           slickContext.run(_ => usersToRoles.delete >> users.delete).unit
         }
